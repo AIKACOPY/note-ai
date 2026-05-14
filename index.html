@@ -1,76 +1,113 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Family Tree — Genealogy Platform</title>
-<link rel="stylesheet" href="style.css"/>
+<meta charset="UTF-8"/>
+<title>Family Tree</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}
+body{background:linear-gradient(135deg,#0f1226,#1b1f4a);color:#fff;height:100vh;overflow:hidden}
+#app{display:grid;grid-template-columns:280px 1fr;height:100vh}
+.glass{background:rgba(255,255,255,0.08);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,0.15);border-radius:14px}
+.sidebar{margin:10px;padding:14px;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
+.logo{font-size:1.4rem;font-weight:bold;background:linear-gradient(90deg,#7b5cff,#ff5cae);-webkit-background-clip:text;color:transparent}
+button{cursor:pointer;padding:8px;border-radius:8px;border:none;background:rgba(255,255,255,.1);color:#fff;transition:.2s}
+button:hover{background:rgba(255,255,255,.2);transform:translateY(-1px)}
+button.primary{background:linear-gradient(90deg,#7b5cff,#ff5cae);font-weight:600;padding:10px;box-shadow:0 4px 18px rgba(123,92,255,.4)}
+input,select,textarea{padding:7px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#fff;width:100%;font-family:inherit}
+label{display:flex;flex-direction:column;font-size:.8rem;color:#a8aacb;gap:3px}
+.row{display:flex;gap:5px}
+.row button{flex:1}
+.search-block{display:flex;flex-direction:column;gap:6px}
+.member-list{max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:4px}
+.member-list .item{padding:6px 8px;background:rgba(255,255,255,.05);border-radius:8px;font-size:.85rem;cursor:pointer}
+.member-list .item:hover{background:rgba(255,255,255,.15)}
+.member-list .item.match{outline:2px solid #ff5cae}
+.stats{background:rgba(255,255,255,.05);border-radius:10px;padding:10px}
+.stats h4{margin-bottom:6px;color:#ff5cae}
+.stats div{font-size:.85rem;color:#a8aacb;margin:2px 0}
+.stats span{color:#fff;font-weight:600}
+.actions{display:flex;gap:5px}
+.export-block{display:flex;flex-direction:column;gap:5px}
+.export-block h4{color:#ff5cae;margin-bottom:4px}
+.export-block button{font-size:.82rem;text-align:left}
+.canvas-area{position:relative;margin:10px 10px 10px 0;border-radius:14px;overflow:hidden;background:radial-gradient(circle at center,#1c1f47,#0a0c20)}
+.topbar{position:absolute;top:10px;left:10px;right:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;z-index:10}
+#breadcrumb{font-weight:600}
+.zoom-controls{display:flex;gap:6px}
+#treeSvg{width:100%;height:100%;display:block}
+.node-card{cursor:pointer}
+.node-card rect{stroke-width:2;filter:drop-shadow(0 4px 12px rgba(0,0,0,.5));transition:.25s}
+.node-card:hover rect{filter:drop-shadow(0 0 18px #ff5cae)}
+.node-card text{fill:#fff;font-size:11px;pointer-events:none}
+.link{fill:none;stroke:#888;stroke-width:2}
+.link.adopt{stroke-dasharray:5,5;stroke:#ffaa00}
+.adopt-badge{fill:#ffaa00;font-weight:bold;font-size:9px}
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100}
+.modal{padding:20px;width:90%;max-width:600px;max-height:90vh;overflow-y:auto;background:#1b1f4a;border-radius:14px;border:1px solid rgba(255,255,255,.2)}
+.modal h3{margin-bottom:15px;color:#ff5cae}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:15px}
+.checkbox{flex-direction:row;align-items:center;gap:8px}
+.checkbox input{width:auto}
+.detail-panel{position:fixed;top:20px;right:20px;width:320px;max-height:90vh;overflow-y:auto;padding:20px;z-index:50;background:rgba(27,31,74,0.95)}
+.detail-panel img{width:120px;height:120px;border-radius:50%;object-fit:cover;display:block;margin:0 auto 10px;border:3px solid #7b5cff}
+.detail-panel .placeholder{width:120px;height:120px;border-radius:50%;background:#7b5cff;display:flex;align-items:center;justify-content:center;font-size:2.5rem;margin:0 auto 10px}
+.detail-panel h2{text-align:center;margin-bottom:10px}
+.detail-panel p{margin:5px 0;font-size:.9rem;color:#cfcfe5}
+.detail-panel .close{position:absolute;top:8px;right:8px;background:rgba(255,0,0,0.4);width:30px;height:30px;border-radius:50%}
+.detail-panel .btns{display:flex;gap:5px;margin-top:12px}
+.detail-panel .btns button{flex:1;font-size:.8rem}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#7b5cff;color:#fff;padding:10px 20px;border-radius:8px;z-index:1000;animation:fade .3s}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.rel-result{margin-top:10px;padding:10px;background:rgba(123,92,255,.2);border-radius:8px;text-align:center;font-weight:600;min-height:20px}
+@media(max-width:768px){#app{grid-template-columns:1fr}.sidebar{max-height:40vh}}
+</style>
 </head>
 <body>
-<!-- Embedded data placeholder (used by "Save for GitHub") -->
-<script id="embedded-data" type="application/json">null</script>
-
 <div id="app">
-  <!-- Sidebar -->
   <aside class="sidebar glass">
-    <div class="logo">🌳 <span>FamilyTree</span></div>
-
-    <div class="family-switcher">
-      <label>Family</label>
-      <select id="familySelect"></select>
-      <div class="row">
-        <button id="newFamilyBtn" title="New Family">＋</button>
-        <button id="renameFamilyBtn" title="Rename">✎</button>
-        <button id="deleteFamilyBtn" title="Delete">🗑</button>
-      </div>
+    <div class="logo">🌳 FamilyTree</div>
+    <label>Family<select id="familySelect"></select></label>
+    <div class="row">
+      <button id="newFamilyBtn">＋ New</button>
+      <button id="renameFamilyBtn">✎</button>
+      <button id="deleteFamilyBtn">🗑</button>
     </div>
-
     <button class="primary" id="addMemberBtn">＋ Add Member</button>
-
     <div class="search-block">
-      <input type="text" id="searchInput" placeholder="🔍 Search by name..."/>
+      <input id="searchInput" placeholder="🔍 Search..."/>
       <select id="filterStatus">
         <option value="all">All</option>
         <option value="alive">Alive</option>
         <option value="deceased">Deceased</option>
       </select>
-      <input type="text" id="filterLocation" placeholder="Filter by location..."/>
-      <input type="number" id="filterGen" placeholder="Generation #" min="1"/>
     </div>
-
     <div class="member-list" id="memberList"></div>
-
-    <div class="stats glass-inner">
+    <div class="stats">
       <h4>📊 Statistics</h4>
       <div>Total: <span id="statTotal">0</span></div>
       <div>Generations: <span id="statGen">0</span></div>
       <div>Alive: <span id="statAlive">0</span></div>
-      <div>🎂 Upcoming: <span id="statBirthdays">0</span></div>
+      <div>🎂 Birthdays(30d): <span id="statBirthdays">0</span></div>
     </div>
-
     <div class="actions">
-      <button id="undoBtn" title="Undo">↶</button>
-      <button id="redoBtn" title="Redo">↷</button>
-      <button id="saveBtn" title="Save">💾</button>
-      <button id="relationBtn" title="Detect Relationship">🔗</button>
+      <button id="undoBtn">↶ Undo</button>
+      <button id="redoBtn">↷ Redo</button>
+      <button id="relationBtn">🔗 Rel</button>
     </div>
-
     <div class="export-block">
       <h4>Export</h4>
-      <button id="exportJsonBtn">⬇ JSON</button>
-      <button id="importJsonBtn">⬆ JSON</button>
+      <button id="exportJsonBtn">⬇ Export JSON</button>
+      <button id="importJsonBtn">⬆ Import JSON</button>
       <input type="file" id="importJsonInput" accept="application/json" hidden/>
-      <button id="exportPngBtn">🖼 PNG</button>
-      <button id="exportPdfBtn">📄 PDF</button>
-      <button id="exportMaleBtn">♂ Male Lineage PDF</button>
-      <button id="saveForGithubBtn">🚀 Save for GitHub</button>
+      <button id="exportPngBtn">🖼 Export PNG</button>
+      <button id="exportPdfBtn">📄 Export PDF</button>
     </div>
   </aside>
-
-  <!-- Main Tree -->
   <main class="canvas-area">
     <div class="topbar glass">
       <div id="breadcrumb">🏠 Main Tree</div>
@@ -78,53 +115,34 @@
         <button id="zoomIn">＋</button>
         <button id="zoomOut">－</button>
         <button id="zoomReset">⟳</button>
-        <button id="backToMain" hidden>⬅ Main Tree</button>
+        <button id="backToMain" style="display:none">⬅ Main</button>
       </div>
     </div>
     <svg id="treeSvg"></svg>
   </main>
-
-  <!-- Detail panel -->
-  <aside class="detail-panel glass" id="detailPanel" hidden>
-    <button class="close" id="closeDetail">✕</button>
-    <div id="detailContent"></div>
-  </aside>
 </div>
 
-<!-- Add/Edit Modal -->
-<div class="modal-backdrop" id="memberModal" hidden>
+<div class="modal-backdrop" id="memberModal" style="display:none">
   <div class="modal glass">
     <h3 id="modalTitle">Add Member</h3>
     <form id="memberForm">
       <input type="hidden" id="memberId"/>
       <div class="grid2">
-        <label>Full Name<input type="text" id="fName" required/></label>
-        <label>Gender
-          <select id="fGender">
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-            <option value="other">Other</option>
-          </select>
-        </label>
-        <label>Date of Birth<input type="date" id="fDob"/></label>
+        <label>Full Name<input id="fName" required/></label>
+        <label>Gender<select id="fGender"><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></select></label>
+        <label>DOB<input type="date" id="fDob"/></label>
         <label>Death Date<input type="date" id="fDeath"/></label>
-        <label>Parent
-          <select id="fParent"><option value="">— None —</option></select>
-        </label>
-        <label>Spouse Name<input type="text" id="fSpouse"/></label>
+        <label>Parent<select id="fParent"></select></label>
+        <label>Spouse Name<input id="fSpouse"/></label>
         <label>Marriage Date<input type="date" id="fMarriage"/></label>
-        <label>Profile Picture<input type="file" id="fImage" accept="image/*"/></label>
-        <label>Country<input type="text" id="fCountry"/></label>
-        <label>State<input type="text" id="fState"/></label>
-        <label>City<input type="text" id="fCity"/></label>
-        <label class="checkbox">
-          <input type="checkbox" id="fAdopted"/> Is Adopted Child?
-        </label>
-        <label>Biological Parent
-          <select id="fOriginalParent"><option value="">— None —</option></select>
-        </label>
+        <label>Profile Pic<input type="file" id="fImage" accept="image/*"/></label>
+        <label>Country<input id="fCountry"/></label>
+        <label>State<input id="fState"/></label>
+        <label>City<input id="fCity"/></label>
+        <label class="checkbox"><input type="checkbox" id="fAdopted"/> Adopted?</label>
+        <label>Bio Parent<select id="fOriginalParent"></select></label>
       </div>
-      <label>Notes / Biography<textarea id="fNotes" rows="3"></textarea></label>
+      <label>Notes<textarea id="fNotes" rows="3"></textarea></label>
       <div class="modal-actions">
         <button type="button" id="cancelModal">Cancel</button>
         <button type="submit" class="primary">Save</button>
@@ -133,20 +151,263 @@
   </div>
 </div>
 
-<!-- Relationship Modal -->
-<div class="modal-backdrop" id="relationModal" hidden>
-  <div class="modal glass small">
+<div class="modal-backdrop" id="relationModal" style="display:none">
+  <div class="modal glass" style="max-width:400px">
     <h3>🔗 Detect Relationship</h3>
     <label>Person A<select id="relA"></select></label>
-    <label>Person B<select id="relB"></select></label>
-    <button class="primary" id="detectRelBtn">Detect</button>
+    <label style="margin-top:10px">Person B<select id="relB"></select></label>
+    <button class="primary" id="detectRelBtn" style="margin-top:10px;width:100%">Detect</button>
     <div class="rel-result" id="relResult"></div>
     <div class="modal-actions"><button id="closeRelModal">Close</button></div>
   </div>
 </div>
 
-<div id="toast" class="toast" hidden></div>
+<div class="detail-panel glass" id="detailPanel" style="display:none">
+  <button class="close" id="closeDetail">✕</button>
+  <div id="detailContent"></div>
+</div>
 
-<script src="script.js"></script>
-</body>
-</html>
+<script>
+const LS_KEY="familyTreeApp_v1";
+const COLORS=["#7b5cff","#ff5cae","#5cd0ff","#ffb55c","#7CFC00","#ff7676","#a06cd5","#34d399","#facc15","#22d3ee"];
+let state={activeFamily:null,families:{}};
+let history=[],historyIndex=-1;
+let svg,gMain,zoom,currentRootId=null;
+
+function init(){
+  loadData();
+  svg=d3.select("#treeSvg");
+  gMain=svg.append("g");
+  zoom=d3.zoom().scaleExtent([0.2,3]).on("zoom",e=>gMain.attr("transform",e.transform));
+  svg.call(zoom);
+  bindEvents();
+  pushHistory();
+  renderAll();
+}
+function loadData(){
+  const s=localStorage.getItem(LS_KEY);
+  if(s){try{state=JSON.parse(s);return}catch(e){}}
+  const fid="fam_"+Date.now();
+  state={activeFamily:fid,families:{[fid]:{name:"My Family",members:[]}}};
+}
+function saveData(silent){localStorage.setItem(LS_KEY,JSON.stringify(state));if(!silent)toast("💾 Saved")}
+function getFamily(){return state.families[state.activeFamily]}
+function getMembers(){return getFamily().members}
+function pushHistory(){history=history.slice(0,historyIndex+1);history.push(JSON.stringify(state));if(history.length>50)history.shift();historyIndex=history.length-1}
+function undo(){if(historyIndex<=0)return;historyIndex--;state=JSON.parse(history[historyIndex]);saveData(true);renderAll()}
+function redo(){if(historyIndex>=history.length-1)return;historyIndex++;state=JSON.parse(history[historyIndex]);saveData(true);renderAll()}
+function escapeHtml(s){return(s||"").replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function toast(m){const t=document.createElement("div");t.className="toast";t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),2000)}
+
+function bindEvents(){
+  document.getElementById("addMemberBtn").onclick=()=>openMemberModal();
+  document.getElementById("cancelModal").onclick=()=>document.getElementById("memberModal").style.display="none";
+  document.getElementById("memberForm").onsubmit=onSaveMember;
+  document.getElementById("newFamilyBtn").onclick=()=>{const n=prompt("Family name?");if(!n)return;const id="fam_"+Date.now();state.families[id]={name:n,members:[]};state.activeFamily=id;pushHistory();saveData();renderAll()};
+  document.getElementById("renameFamilyBtn").onclick=()=>{const n=prompt("Rename:",getFamily().name);if(n){getFamily().name=n;pushHistory();saveData();renderAll()}};
+  document.getElementById("deleteFamilyBtn").onclick=()=>{if(Object.keys(state.families).length<=1)return alert("Need at least 1 family");if(!confirm("Delete?"))return;delete state.families[state.activeFamily];state.activeFamily=Object.keys(state.families)[0];pushHistory();saveData();renderAll()};
+  document.getElementById("familySelect").onchange=e=>{state.activeFamily=e.target.value;currentRootId=null;renderAll()};
+  document.getElementById("searchInput").oninput=renderMemberList;
+  document.getElementById("filterStatus").onchange=renderMemberList;
+  document.getElementById("undoBtn").onclick=undo;
+  document.getElementById("redoBtn").onclick=redo;
+  document.getElementById("zoomIn").onclick=()=>svg.transition().call(zoom.scaleBy,1.3);
+  document.getElementById("zoomOut").onclick=()=>svg.transition().call(zoom.scaleBy,0.7);
+  document.getElementById("zoomReset").onclick=()=>svg.transition().call(zoom.transform,d3.zoomIdentity);
+  document.getElementById("backToMain").onclick=()=>{currentRootId=null;document.getElementById("backToMain").style.display="none";document.getElementById("breadcrumb").textContent="🏠 Main Tree";renderTree()};
+  document.getElementById("closeDetail").onclick=()=>document.getElementById("detailPanel").style.display="none";
+  document.getElementById("relationBtn").onclick=openRelationModal;
+  document.getElementById("closeRelModal").onclick=()=>document.getElementById("relationModal").style.display="none";
+  document.getElementById("detectRelBtn").onclick=detectRelationship;
+  document.getElementById("exportJsonBtn").onclick=exportJSON;
+  document.getElementById("importJsonBtn").onclick=()=>document.getElementById("importJsonInput").click();
+  document.getElementById("importJsonInput").onchange=importJSON;
+  document.getElementById("exportPngBtn").onclick=exportPNG;
+  document.getElementById("exportPdfBtn").onclick=exportPDF;
+  setInterval(()=>saveData(true),20000);
+}
+
+function openMemberModal(member){
+  document.getElementById("modalTitle").textContent=member?"Edit Member":"Add Member";
+  document.getElementById("memberId").value=member?.id||"";
+  document.getElementById("fName").value=member?.name||"";
+  document.getElementById("fGender").value=member?.gender||"male";
+  document.getElementById("fDob").value=member?.dob||"";
+  document.getElementById("fDeath").value=member?.deathDate||"";
+  document.getElementById("fSpouse").value=member?.spouseName||"";
+  document.getElementById("fMarriage").value=member?.marriageDate||"";
+  document.getElementById("fCountry").value=member?.location?.country||"";
+  document.getElementById("fState").value=member?.location?.state||"";
+  document.getElementById("fCity").value=member?.location?.city||"";
+  document.getElementById("fAdopted").checked=member?.isAdopted||false;
+  document.getElementById("fNotes").value=member?.notes||"";
+  document.getElementById("fImage").value="";
+  const ps=document.getElementById("fParent"),os=document.getElementById("fOriginalParent");
+  ps.innerHTML='<option value="">— None —</option>';
+  os.innerHTML='<option value="">— None —</option>';
+  getMembers().filter(x=>!member||x.id!==member.id).forEach(p=>{
+    ps.insertAdjacentHTML("beforeend",`<option value="${p.id}">${escapeHtml(p.name)}</option>`);
+    os.insertAdjacentHTML("beforeend",`<option value="${p.id}">${escapeHtml(p.name)}</option>`);
+  });
+  ps.value=member?.parentId||"";
+  os.value=member?.originalParentId||"";
+  document.getElementById("memberModal").style.display="flex";
+}
+
+async function onSaveMember(e){
+  e.preventDefault();
+  const id=document.getElementById("memberId").value;
+  const file=document.getElementById("fImage").files[0];
+  let image=null;
+  if(file)image=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(file)});
+  const data={
+    id:id||"m_"+Date.now()+"_"+Math.floor(Math.random()*999),
+    name:document.getElementById("fName").value.trim(),
+    gender:document.getElementById("fGender").value,
+    dob:document.getElementById("fDob").value,
+    deathDate:document.getElementById("fDeath").value,
+    parentId:document.getElementById("fParent").value||null,
+    spouseName:document.getElementById("fSpouse").value,
+    marriageDate:document.getElementById("fMarriage").value,
+    isAdopted:document.getElementById("fAdopted").checked,
+    originalParentId:document.getElementById("fOriginalParent").value||null,
+    notes:document.getElementById("fNotes").value,
+    location:{country:document.getElementById("fCountry").value,state:document.getElementById("fState").value,city:document.getElementById("fCity").value}
+  };
+  const ms=getMembers();
+  if(id){const idx=ms.findIndex(m=>m.id===id);data.image=image||ms[idx].image;data.color=ms[idx].color;ms[idx]=data}
+  else{data.image=image;data.color=COLORS[ms.length%COLORS.length];ms.push(data)}
+  pushHistory();saveData();
+  document.getElementById("memberModal").style.display="none";
+  renderAll();
+}
+
+function renderAll(){renderFamilySelect();renderMemberList();renderTree();renderStats()}
+
+function renderFamilySelect(){
+  const sel=document.getElementById("familySelect");
+  sel.innerHTML="";
+  Object.entries(state.families).forEach(([id,f])=>{
+    sel.insertAdjacentHTML("beforeend",`<option value="${id}" ${id===state.activeFamily?"selected":""}>${escapeHtml(f.name)}</option>`);
+  });
+}
+
+function renderMemberList(){
+  const list=document.getElementById("memberList");
+  const q=document.getElementById("searchInput").value.toLowerCase();
+  const status=document.getElementById("filterStatus").value;
+  list.innerHTML="";
+  getMembers().forEach(m=>{
+    const alive=!m.deathDate;
+    if(status==="alive"&&!alive)return;
+    if(status==="deceased"&&alive)return;
+    const match=q&&m.name.toLowerCase().includes(q);
+    if(q&&!match)return;
+    const div=document.createElement("div");
+    div.className="item"+(match?" match":"");
+    div.style.borderLeft="4px solid "+(m.color||"#7b5cff");
+    div.textContent=m.name+(m.deathDate?" †":"");
+    div.onclick=()=>showDetail(m.id);
+    list.appendChild(div);
+  });
+}
+
+function computeGenerations(){
+  const ms=getMembers(),gen={};
+  function calc(id){
+    if(gen[id]!==undefined)return gen[id];
+    const m=ms.find(x=>x.id===id);
+    if(!m||!m.parentId)return gen[id]=1;
+    return gen[id]=calc(m.parentId)+1;
+  }
+  ms.forEach(m=>calc(m.id));
+  return gen;
+}
+
+function renderStats(){
+  const ms=getMembers();
+  document.getElementById("statTotal").textContent=ms.length;
+  const gens=computeGenerations();
+  document.getElementById("statGen").textContent=Math.max(0,...Object.values(gens));
+  document.getElementById("statAlive").textContent=ms.filter(m=>!m.deathDate).length;
+  const today=new Date(),soon=new Date();soon.setDate(today.getDate()+30);
+  let bd=0;
+  ms.forEach(m=>{
+    if(!m.dob||m.deathDate)return;
+    const d=new Date(m.dob);d.setFullYear(today.getFullYear());
+    if(d>=today&&d<=soon)bd++;
+  });
+  document.getElementById("statBirthdays").textContent=bd;
+}
+
+function buildHierarchy(rootId){
+  const ms=getMembers();
+  if(!ms.length)return null;
+  const childrenMap={};
+  ms.forEach(m=>{const p=m.parentId;if(!childrenMap[p])childrenMap[p]=[];childrenMap[p].push(m)});
+  let roots;
+  if(rootId){const r=ms.find(m=>m.id===rootId);if(!r)return null;roots=[r]}
+  else roots=ms.filter(m=>!m.parentId||!ms.find(x=>x.id===m.parentId));
+  if(!roots.length)return null;
+  function build(m){return{...m,children:(childrenMap[m.id]||[]).map(build)}}
+  if(roots.length===1)return build(roots[0]);
+  return{id:"_virtual",name:"Family",_virtual:true,children:roots.map(build)};
+}
+
+function renderTree(){
+  gMain.selectAll("*").remove();
+  const data=buildHierarchy(currentRootId);
+  if(!data){
+    gMain.append("text").attr("x",window.innerWidth/2-100).attr("y",window.innerHeight/2)
+      .attr("fill","#888").attr("font-size","18px").text("No members yet. Click + Add Member");
+    return;
+  }
+  const root=d3.hierarchy(data);
+  const tree=d3.tree().nodeSize([180,160]);
+  tree(root);
+  const links=root.links().filter(l=>!l.source.data._virtual);
+  gMain.selectAll(".link").data(links).enter().append("path")
+    .attr("class",d=>"link"+(d.target.data.isAdopted?" adopt":""))
+    .attr("d",d3.linkVertical().x(d=>d.x).y(d=>d.y));
+  // adoption dotted line to bio parent
+  root.descendants().forEach(node=>{
+    if(node.data.isAdopted&&node.data.originalParentId){
+      const bio=root.descendants().find(n=>n.data.id===node.data.originalParentId);
+      if(bio){
+        gMain.append("path").attr("class","link adopt")
+          .attr("d",`M${bio.x},${bio.y} C${bio.x},${(bio.y+node.y)/2} ${node.x},${(bio.y+node.y)/2} ${node.x},${node.y}`);
+      }
+    }
+  });
+  const nodes=gMain.selectAll(".node-card").data(root.descendants().filter(d=>!d.data._virtual)).enter()
+    .append("g").attr("class","node-card").attr("transform",d=>`translate(${d.x-70},${d.y-40})`)
+    .on("click",(e,d)=>showDetail(d.data.id));
+  nodes.append("rect").attr("width",140).attr("height",80).attr("rx",12)
+    .attr("fill",d=>d.data.color||"#7b5cff").attr("stroke","#fff").attr("stroke-opacity",.3);
+  nodes.append("text").attr("x",70).attr("y",25).attr("text-anchor","middle").attr("font-weight","bold").text(d=>d.data.name.length>16?d.data.name.slice(0,15)+"…":d.data.name);
+  nodes.append("text").attr("x",70).attr("y",45).attr("text-anchor","middle").attr("font-size","10px").text(d=>{
+    const b=d.data.dob?d.data.dob.slice(0,4):"?";
+    const dt=d.data.deathDate?d.data.deathDate.slice(0,4):"";
+    return dt?`${b}–${dt}`:b;
+  });
+  nodes.append("text").attr("x",70).attr("y",62).attr("text-anchor","middle").attr("font-size","10px").attr("fill","#fff").attr("opacity",.8).text(d=>{
+    const loc=d.data.location;return loc&&(loc.city||loc.country)?"📍 "+(loc.city||loc.country):""});
+  nodes.filter(d=>d.data.isAdopted).append("text").attr("class","adopt-badge").attr("x",130).attr("y",15).attr("text-anchor","end").text("ADOPTED");
+  // center
+  const bbox=gMain.node().getBBox();
+  const w=svg.node().clientWidth,h=svg.node().clientHeight;
+  const scale=Math.min(1,Math.min(w/(bbox.width+100),h/(bbox.height+100)));
+  const tx=w/2-(bbox.x+bbox.width/2)*scale;
+  const ty=80-bbox.y*scale;
+  svg.call(zoom.transform,d3.zoomIdentity.translate(tx,ty).scale(scale));
+}
+
+function showDetail(id){
+  const m=getMembers().find(x=>x.id===id);
+  if(!m)return;
+  const c=document.getElementById("detailContent");
+  const kids=getMembers().filter(x=>x.parentId===id);
+  const parent=m.parentId?getMembers().find(x=>x.id===m.parentId):null;
+  c.innerHTML=`
+    ${m.image?`<img src="${m.image}"/>`:`<div class="placeholder">${m.name[0]||"?"}</div>`}
+    <h2>${escapeHtml(m
