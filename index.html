@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Family Tree — Genealogy Platform</title>
+<link rel="stylesheet" href="style.css"/>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+<!-- Embedded data placeholder (used by "Save for GitHub") -->
+<script id="embedded-data" type="application/json">null</script>
+
+<div id="app">
+  <!-- Sidebar -->
+  <aside class="sidebar glass">
+    <div class="logo">🌳 <span>FamilyTree</span></div>
+
+    <div class="family-switcher">
+      <label>Family</label>
+      <select id="familySelect"></select>
+      <div class="row">
+        <button id="newFamilyBtn" title="New Family">＋</button>
+        <button id="renameFamilyBtn" title="Rename">✎</button>
+        <button id="deleteFamilyBtn" title="Delete">🗑</button>
+      </div>
+    </div>
+
+    <button class="primary" id="addMemberBtn">＋ Add Member</button>
+
+    <div class="search-block">
+      <input type="text" id="searchInput" placeholder="🔍 Search by name..."/>
+      <select id="filterStatus">
+        <option value="all">All</option>
+        <option value="alive">Alive</option>
+        <option value="deceased">Deceased</option>
+      </select>
+      <input type="text" id="filterLocation" placeholder="Filter by location..."/>
+      <input type="number" id="filterGen" placeholder="Generation #" min="1"/>
+    </div>
+
+    <div class="member-list" id="memberList"></div>
+
+    <div class="stats glass-inner">
+      <h4>📊 Statistics</h4>
+      <div>Total: <span id="statTotal">0</span></div>
+      <div>Generations: <span id="statGen">0</span></div>
+      <div>Alive: <span id="statAlive">0</span></div>
+      <div>🎂 Upcoming: <span id="statBirthdays">0</span></div>
+    </div>
+
+    <div class="actions">
+      <button id="undoBtn" title="Undo">↶</button>
+      <button id="redoBtn" title="Redo">↷</button>
+      <button id="saveBtn" title="Save">💾</button>
+      <button id="relationBtn" title="Detect Relationship">🔗</button>
+    </div>
+
+    <div class="export-block">
+      <h4>Export</h4>
+      <button id="exportJsonBtn">⬇ JSON</button>
+      <button id="importJsonBtn">⬆ JSON</button>
+      <input type="file" id="importJsonInput" accept="application/json" hidden/>
+      <button id="exportPngBtn">🖼 PNG</button>
+      <button id="exportPdfBtn">📄 PDF</button>
+      <button id="exportMaleBtn">♂ Male Lineage PDF</button>
+      <button id="saveForGithubBtn">🚀 Save for GitHub</button>
+    </div>
+  </aside>
+
+  <!-- Main Tree -->
+  <main class="canvas-area">
+    <div class="topbar glass">
+      <div id="breadcrumb">🏠 Main Tree</div>
+      <div class="zoom-controls">
+        <button id="zoomIn">＋</button>
+        <button id="zoomOut">－</button>
+        <button id="zoomReset">⟳</button>
+        <button id="backToMain" hidden>⬅ Main Tree</button>
+      </div>
+    </div>
+    <svg id="treeSvg"></svg>
+  </main>
+
+  <!-- Detail panel -->
+  <aside class="detail-panel glass" id="detailPanel" hidden>
+    <button class="close" id="closeDetail">✕</button>
+    <div id="detailContent"></div>
+  </aside>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-backdrop" id="memberModal" hidden>
+  <div class="modal glass">
+    <h3 id="modalTitle">Add Member</h3>
+    <form id="memberForm">
+      <input type="hidden" id="memberId"/>
+      <div class="grid2">
+        <label>Full Name<input type="text" id="fName" required/></label>
+        <label>Gender
+          <select id="fGender">
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+        <label>Date of Birth<input type="date" id="fDob"/></label>
+        <label>Death Date<input type="date" id="fDeath"/></label>
+        <label>Parent
+          <select id="fParent"><option value="">— None —</option></select>
+        </label>
+        <label>Spouse Name<input type="text" id="fSpouse"/></label>
+        <label>Marriage Date<input type="date" id="fMarriage"/></label>
+        <label>Profile Picture<input type="file" id="fImage" accept="image/*"/></label>
+        <label>Country<input type="text" id="fCountry"/></label>
+        <label>State<input type="text" id="fState"/></label>
+        <label>City<input type="text" id="fCity"/></label>
+        <label class="checkbox">
+          <input type="checkbox" id="fAdopted"/> Is Adopted Child?
+        </label>
+        <label>Biological Parent
+          <select id="fOriginalParent"><option value="">— None —</option></select>
+        </label>
+      </div>
+      <label>Notes / Biography<textarea id="fNotes" rows="3"></textarea></label>
+      <div class="modal-actions">
+        <button type="button" id="cancelModal">Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Relationship Modal -->
+<div class="modal-backdrop" id="relationModal" hidden>
+  <div class="modal glass small">
+    <h3>🔗 Detect Relationship</h3>
+    <label>Person A<select id="relA"></select></label>
+    <label>Person B<select id="relB"></select></label>
+    <button class="primary" id="detectRelBtn">Detect</button>
+    <div class="rel-result" id="relResult"></div>
+    <div class="modal-actions"><button id="closeRelModal">Close</button></div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="script.js"></script>
+</body>
+</html>
